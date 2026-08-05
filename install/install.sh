@@ -30,11 +30,23 @@ fi
 # The IsaacLab fork's develop branch carries the whole Newton/SAP delta as
 # real commits -- there is no patch step.
 [ -d "$CODE_DIR/newton-adaptive" ] || git clone https://github.com/mardigiorgio/newton-adaptive.git "$CODE_DIR/newton-adaptive"
-[ -d "$CODE_DIR/sap_warp" ] || git clone https://github.com/mardigiorgio/sap_warp.git "$CODE_DIR/sap_warp"
+# sap_warp is optional: a failed/absent clone degrades the SAP solver variants
+# to unavailable (verify.py warns) instead of aborting the install.
+if [ ! -d "$CODE_DIR/sap_warp" ]; then
+    git clone https://github.com/mardigiorgio/sap_warp.git "$CODE_DIR/sap_warp" \
+        || echo "WARNING: sap_warp clone failed -- continuing with a MuJoCo-only install." >&2
+fi
 [ -d "$CODE_DIR/IsaacLab" ] || git clone -b develop https://github.com/mardigiorgio/IsaacLab.git "$CODE_DIR/IsaacLab"
 
 # --- venv + locked platform (Isaac Sim + torch cu128 + editable Newton fork) -
 cd "$ROOT"
+# Venv scripts embed absolute paths; after a repo rename/move the old venv is
+# silently broken (bad-interpreter shebangs, dead VIRTUAL_ENV), so recreate it
+# whenever its recorded location no longer matches this checkout.
+if [ -d .venv ] && ! grep -q "VIRTUAL_ENV='$ROOT/.venv'" .venv/bin/activate 2>/dev/null; then
+    echo "Existing .venv was created at a different path; recreating it." >&2
+    rm -rf .venv
+fi
 [ -d .venv ] || uv venv --python 3.12 .venv
 uv sync --locked
 

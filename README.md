@@ -87,9 +87,13 @@ source .venv/bin/activate     # Isaac Sim + Isaac Lab + the Newton fork
 **Smoke test** - a 5-iteration cartpole training run on the adaptive solver, headless:
 
 ```bash
-../IsaacLab/isaaclab.sh train --rl_library rsl_rl --task Isaac-Cartpole-Direct \
-  --num_envs 16 presets=newton_mjwarp --solver mujoco-adaptive --max_iterations 5
+OMNI_KIT_ACCEPT_EULA=YES ../IsaacLab/isaaclab.sh train --rl_library rsl_rl \
+  --task Isaac-Cartpole-Direct --num_envs 16 presets=newton_mjwarp \
+  --solver mujoco-adaptive --max_iterations 5
 ```
+
+(`OMNI_KIT_ACCEPT_EULA=YES` matters only for the very first Isaac Sim launch on a
+machine; the sweep driver and the editor launcher set it themselves.)
 
 **Training studies** - the fixed-vs-adaptive PPO sweep lives in `experiments/rubato-ppo-sweep/`:
 

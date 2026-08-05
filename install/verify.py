@@ -82,7 +82,8 @@ except Exception as e:
     )
 
 # 4. The IsaacLab clone carries the fork-side deliverables.
-isaaclab_root = pathlib.Path(isaaclab.__file__).resolve().parents[2]
+# isaaclab.__file__ = <IsaacLab>/source/isaaclab/isaaclab/__init__.py -> repo root is parents[3].
+isaaclab_root = pathlib.Path(isaaclab.__file__).resolve().parents[3]
 ui_ext = isaaclab_root / "source" / "newton_adaptive_ui"
 if not ui_ext.is_dir():
     fail(
@@ -91,10 +92,10 @@ if not ui_ext.is_dir():
         "  GUI toggle ships there): `git -C <IsaacLab> checkout develop`."
     )
 train_backend = isaaclab_root / "source" / "isaaclab_rl" / "isaaclab_rl" / "entrypoints" / "backends" / "train_rsl_rl.py"
-if train_backend.is_file() and "--solver" not in train_backend.read_text(encoding="utf-8", errors="ignore"):
+if not train_backend.is_file() or "--solver" not in train_backend.read_text(encoding="utf-8", errors="ignore"):
     fail(
-        f"--solver flag missing from {train_backend}.\n"
-        "  The IsaacLab clone predates (or lost) the solver CLI wiring --\n"
+        f"--solver CLI wiring not found at {train_backend}.\n"
+        "  The IsaacLab clone predates (or lost) the solver flag --\n"
         "  update the fork's develop branch."
     )
 

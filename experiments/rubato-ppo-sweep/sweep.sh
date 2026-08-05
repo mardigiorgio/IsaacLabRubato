@@ -27,10 +27,16 @@
 # ADAPTIVE_LOG_EVERY.
 set -uo pipefail
 
-CODE_DIR=${CODE_DIR:-$HOME/Documents/code}
-RUBATO_DIR=${RUBATO_DIR:-$CODE_DIR/IsaacLabRubato}
+# This script lives at <repo>/experiments/rubato-ppo-sweep/, so the repo root is
+# derivable from its own location -- the repo may be named or moved freely.
+_SWEEP_REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+RUBATO_DIR=${RUBATO_DIR:-$_SWEEP_REPO_ROOT}
+CODE_DIR=${CODE_DIR:-$(dirname "$_SWEEP_REPO_ROOT")}
 ISAACLAB_DIR=${ISAACLAB_DIR:-$CODE_DIR/IsaacLab}
 NEWTON_DIR=${NEWTON_DIR:-$CODE_DIR/newton-adaptive}
+
+# Isaac Sim's one-time EULA prompt would stall a detached (nohup) sweep.
+export OMNI_KIT_ACCEPT_EULA=${OMNI_KIT_ACCEPT_EULA:-YES}
 
 PROJECT=${PROJECT:-rubato-ppo}
 RUN_TAG=${RUN_TAG:-r1}
@@ -70,7 +76,7 @@ IsaacContrib-Velocity-Flat-AnymalC
 IsaacContrib-Velocity-Flat-UnitreeA1
 IsaacContrib-Velocity-Flat-UnitreeGo1
 Isaac-Velocity-Flat-UnitreeGo2
-Isaac-Velocity-Flat-G1
+Isaac-Velocity-Flat-G1-v0
 Isaac-Velocity-Flat-H1
 Isaac-Reorient-Cube-Allegro-Direct
 Isaac-Lift-KukaAllegro
