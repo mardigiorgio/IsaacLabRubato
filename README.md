@@ -1,6 +1,6 @@
-# isaac-rubato
+# IsaacLabRubato
 
-isaac-rubato is a modified [Isaac Sim](https://developer.nvidia.com/isaac/sim) /
+IsaacLabRubato (formerly `isaac-rubato`) is a modified [Isaac Sim](https://developer.nvidia.com/isaac/sim) /
 [Isaac Lab](https://github.com/isaac-sim/IsaacLab) / [Newton](https://github.com/newton-physics/newton)
 stack: the standard Isaac toolchain with an adaptive-timestepping solver wired into Isaac Lab's Newton
 backend as a selectable option, so reinforcement-learning policies can be trained on adaptive-step
@@ -13,8 +13,8 @@ free motion) while the frame, and with it the fixed-rate control boundary, is pr
 ## How it works
 
 Isaac Lab steps physics through a single manager class (`NewtonMJWarpManager`, in its `isaaclab_newton`
-extension) that builds and steps the Newton solver each control interval. The integration is two methods
-on that class (solver construction and solver stepping), so the adaptive solver (`SolverMuJoCoAdaptive`,
+extension) that builds and steps the Newton solver each control interval. The integration plugs into that
+class's solver-construction and solver-stepping seams, so the adaptive solver (`SolverMuJoCoAdaptive`,
 error-controlled step-doubling over MuJoCo-Warp) is selectable alongside PhysX and stock Newton, with the
 policy, rewards, observations, and rendering unchanged. The control interface is preserved exactly: the
 action is zero-order-held across the interval, and the solver subdivides time only *within* the interval,
@@ -22,34 +22,52 @@ always landing on the boundary.
 
 ## Installation
 
-Prerequisites you install yourself: [`uv`](https://docs.astral.sh/uv/getting-started/installation/), an NVIDIA driver >= 580, `git`, and ~60 GB free disk.
+Prerequisites you install yourself: [`uv`](https://docs.astral.sh/uv/getting-started/installation/),
+an NVIDIA driver >= 580, `git`, and ~60 GB free disk. Then:
 
 ```bash
-# clone the platform, the custom Newton fork, the SAP solver, and the Isaac Lab fork
-# (the fork's `develop` branch already carries the Newton + SAP integration -- no patch step needed)
-git clone https://github.com/mardigiorgio/isaac-rubato.git && cd isaac-rubato
+git clone https://github.com/mardigiorgio/IsaacLabRubato.git && cd IsaacLabRubato
+bash install/install.sh
+```
+
+The script is idempotent and ends by running `install/verify.py`, which confirms the Newton fork is the
+active import, `SolverMuJoCoAdaptive` (and, when `sap_warp` is present, the SAP variants) are available,
+and the Isaac Lab fork carries the `--solver` wiring and the `newton_adaptive_ui` extension.
+
+<details>
+<summary>What install.sh does (the manual steps)</summary>
+
+```bash
+# clone the custom Newton fork, the SAP solver, and the Isaac Lab fork as SIBLINGS of this repo
+# (the fork's `develop` branch already carries the Newton + SAP integration -- no patch step)
 git clone https://github.com/mardigiorgio/newton-adaptive.git ../newton-adaptive
 git clone https://github.com/mardigiorgio/sap_warp.git ../sap_warp
 git clone -b develop https://github.com/mardigiorgio/IsaacLab.git ../IsaacLab
 
-# sap_warp (the SAP / SAP-adaptive convex-contact solver) has no installable package: the Newton fork
-# adds its root to sys.path at import time. SAP_WARP_PATH points at that clone; export it (in the shell
-# that runs training/editor) when sap_warp is not at the default sibling path below.
-export SAP_WARP_PATH="$PWD/../sap_warp"
+# sap_warp has no installable package: the Newton fork adds its root to sys.path at import
+# time, probing $SAP_WARP_PATH and falling back to the sibling clone. Export SAP_WARP_PATH
+# only when sap_warp is NOT at the default sibling path.
 
 # build the venv and install the locked platform (Isaac Sim + PyTorch cu128 + the Newton fork)
 uv venv --python 3.12 .venv
 uv sync --locked
 
-# install Isaac Lab into the same venv, then re-assert the fork over Isaac Lab's stock Newton
+# install Isaac Lab's editable extensions into the same venv, then re-assert the fork
+# over Isaac Lab's stock git-pinned Newton (isaaclab.sh -i installs the stock pin)
 VIRTUAL_ENV="$PWD/.venv" OMNI_KIT_ACCEPT_EULA=YES ../IsaacLab/isaaclab.sh -i
 uv sync --inexact --locked
 
-# verify (the Newton + SAP delta already lives in the IsaacLab fork's develop branch)
+# verify
 uv run python install/verify.py
 ```
 
-`verify.py` confirms the Newton fork is the active import and `SolverMuJoCoAdaptive` is present. Update the Newton fork later with `git -C ../newton-adaptive pull && uv lock --upgrade-package newton && uv sync --inexact --locked`; pull Isaac Lab changes with `git -C ../IsaacLab pull origin develop`.
+</details>
+
+Update the Newton fork later with `git -C ../newton-adaptive pull && uv sync --inexact --locked`;
+pull Isaac Lab changes with `git -C ../IsaacLab pull origin develop` followed by
+`VIRTUAL_ENV="$PWD/.venv" OMNI_KIT_ACCEPT_EULA=YES ../IsaacLab/isaaclab.sh -i && uv sync --inexact --locked`
+(re-running `-i` refreshes the editable extensions and their dependencies; the final sync
+re-asserts the fork).
 
 ## Getting started
 
@@ -63,25 +81,33 @@ source .venv/bin/activate     # Isaac Sim + Isaac Lab + the Newton fork
 **Editor** - build/inspect scenes on the Newton backend (from the repo root):
 
 ```bash
-./isaac-rubato
+./isaaclab-rubato
 ```
 
-**Training** - the fixed-vs-adaptive experiments live in `experiments/`. Each is a self-contained
-folder (its `env.py` + run script); envs are loaded from the repo at runtime, nothing extra to install:
+**Smoke test** - a 5-iteration cartpole training run on the adaptive solver, headless:
 
 ```bash
-cd experiments/06-30-2026-experiments
-bash cartpole/validate.sh                       # keyless smoke -- proves the adaptive path trains
-SOLVER=fixed    VIDEO=1 bash franka-reach/train.sh
-SOLVER=adaptive VIDEO=1 bash franka-reach/train.sh
+../IsaacLab/isaaclab.sh train --rl_library rsl_rl --task Isaac-Cartpole-Direct \
+  --num_envs 16 presets=newton_mjwarp --solver mujoco-adaptive --max_iterations 5
 ```
+
+**Training studies** - the fixed-vs-adaptive PPO sweep lives in `experiments/rubato-ppo-sweep/`:
+
+```bash
+cd experiments/rubato-ppo-sweep
+TASKS="Isaac-Velocity-Flat-G1-v0" SOLVERS="mujoco mujoco-adaptive" SEEDS="42 43 44" bash sweep.sh
+```
+
+`sweep.sh` is env-var driven (`TASKS`, `SOLVERS`, `SEEDS`, `VIDEO=1`, `WANDB_MODE=offline`, ...);
+see its header for the full knob list. Earlier one-off studies remain under
+`experiments/06-30-2026-experiments/` and `experiments/g1_dish_rack/` as records.
 
 ### Selecting the solver (`--solver`)
 
 The Newton backend exposes four solver variants through the `--solver` flag on the `isaaclab.sh
-train` entry point (`scripts/reinforcement_learning/rsl_rl/train_rsl_rl.py`, baked into the IsaacLab
-fork's `develop` branch). It drives the `MJWarpSolverCfg` latches (`backend` / `adaptive` /
-`sap_adaptive`) read by `NewtonMJWarpManager`:
+train` entry point (`source/isaaclab_rl/isaaclab_rl/entrypoints/backends/train_rsl_rl.py`, baked into
+the IsaacLab fork's `develop` branch; the mimic and teleop scripts expose the same flag). It drives the
+`MJWarpSolverCfg` latches (`backend` / `adaptive` / `sap_adaptive`) read by `NewtonMJWarpManager`:
 
 | `--solver` | backend | constructs | notes |
 |---|---|---|---|
@@ -90,20 +116,20 @@ fork's `develop` branch). It drives the `MJWarpSolverCfg` latches (`backend` / `
 | `sap` | SAP (`sap_warp`) | `SolverSAP` | fixed-step convex compliant contact |
 | `sap-adaptive` | SAP (`sap_warp`) | `SolverSAPAdaptive` | step-doubling SAP (even + global tiling) |
 
-The two `sap*` variants require the `sap_warp` clone on `SAP_WARP_PATH` (see install). Run the built-in
-cube-reorient study task (Newton-tested: Allegro hand) with, e.g.:
+The two `sap*` variants require the `sap_warp` clone (sibling dir or `SAP_WARP_PATH`; see install).
+Run the built-in cube-reorient study task (Newton-tested: Allegro hand) with, e.g.:
 
 ```bash
-./../../../IsaacLab/isaaclab.sh train --solver sap-adaptive \
+../IsaacLab/isaaclab.sh train --solver sap-adaptive \
   --task Isaac-Reorient-Cube-Allegro-Direct \
-  --rl_library rsl_rl --headless --num_envs 64 --max_iterations 1 physics=newton_mjwarp
+  --rl_library rsl_rl --headless --num_envs 64 --max_iterations 1 presets=newton_mjwarp
 # swap --solver for mujoco | mujoco-adaptive | sap | sap-adaptive
 ```
 
-The experiment `train.sh` scripts still select MuJoCo fixed-vs-adaptive via `SOLVER=fixed|adaptive`
-(the `NEWTON_ADAPTIVE=1` env var). The adaptive paths (`mujoco-adaptive`, `sap-adaptive`) also respond to
-the config flag `MJWarpSolverCfg(adaptive=True)` and the GUI toggle (`newton_adaptive_ui` Kit extension);
-`NEWTON_ADAPTIVE_LOG_EVERY=N` writes per-frame dt + sub-step counts to `/tmp/newton_adaptive.log`.
+The adaptive paths (`mujoco-adaptive`, `sap-adaptive`) also respond to the config flag
+`MJWarpSolverCfg(adaptive=True)`, the `NEWTON_ADAPTIVE=1` env var, and the GUI toggle (the
+`newton_adaptive_ui` Kit extension in the IsaacLab fork); `NEWTON_ADAPTIVE_LOG_EVERY=N` writes
+per-frame dt + sub-step counts to `/tmp/newton_adaptive.log`.
 
 ## Built on
 
