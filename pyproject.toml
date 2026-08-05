@@ -1,5 +1,5 @@
 [project]
-name = "isaac-rubato"
+name = "isaaclab-rubato"
 version = "0.1.0"
 description = "Adaptive-timestepping solver wired into the Isaac Sim / Isaac Lab / Newton stack."
 readme = "README.md"
@@ -64,7 +64,7 @@ index-strategy = "unsafe-best-match"
 #    environment rather than isaacsim's standalone metadata.
 override-dependencies = ["numpy>=2", "newton[sim]", "torch==2.10.0", "torchvision==0.25.0"]
 # Non-package project: `uv sync` builds the env from the lock without trying to
-# build isaac-rubato itself as a wheel. (Replaces the original's misuse of an
+# build isaaclab-rubato itself as a wheel. (Replaces the original's misuse of an
 # empty [tool.uv.workspace] table for this purpose.)
 package = false
 

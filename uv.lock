@@ -718,7 +718,7 @@ wheels = [
 ]
 
 [[package]]
-name = "isaac-rubato"
+name = "isaaclab-rubato"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
