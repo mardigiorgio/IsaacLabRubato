@@ -19,8 +19,9 @@ import re
 import torch
 import torch.nn as nn
 
-SWEEP_LOGS = os.path.expanduser(
-    "~/Documents/code/isaac-rubato/experiments/rubato-ppo-sweep/logs/rsl_rl/g1_flat"
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SWEEP_LOGS = os.environ.get(
+    "SWEEP_LOGS", os.path.join(_REPO_ROOT, "experiments", "rubato-ppo-sweep", "logs", "rsl_rl", "g1_flat")
 )
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "exported")
 

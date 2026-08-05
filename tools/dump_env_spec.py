@@ -6,11 +6,11 @@ launcher args, same hydra preset tokens such as ``physics=newton_mjwarp`` and
 joint order, default joint positions, PD gains, action scale/offset, obs term
 layout, and control rates.
 
-Run from anywhere with the isaac-rubato venv active:
+Run from anywhere with the platform venv active:
 
     ISAACLAB=~/Documents/code/IsaacLab
-    $ISAACLAB/isaaclab.sh -p policy/dump_env_spec.py \
-        --task Isaac-Velocity-Flat-G1 --solver mujoco --headless \
+    $ISAACLAB/isaaclab.sh -p tools/dump_env_spec.py \
+        --task Isaac-Velocity-Flat-G1-v0 --solver mujoco --headless \
         --out env_spec.json physics=newton_mjwarp
 """
 
@@ -26,7 +26,8 @@ import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils import setup_preset_cli
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
-# same latch map as integration/cli_solver_flag.patch
+# same latch map as the IsaacLab fork's --solver flag
+# (source/isaaclab_rl/isaaclab_rl/entrypoints/backends/train_rsl_rl.py)
 _SOLVER_CHOICES = {
     "mujoco": {"backend": "mujoco", "adaptive": False, "sap_adaptive": False},
     "mujoco-adaptive": {"backend": "mujoco", "adaptive": True, "sap_adaptive": False},
