@@ -3,7 +3,7 @@
 Run from the IsaacLab root:
 
     PYTHONPATH=/home/mdigiorgio/Documents/code/newton-adaptive ./isaaclab.sh -p \
-        /home/mdigiorgio/Documents/code/isaac-rubato/experiments/g1_dish_rack/settle_test.py
+        /home/mdigiorgio/Documents/code/IsaacLabRubato/experiments/g1_dish_rack/settle_test.py
 
 Pass criteria (printed as PASS/FAIL at the end):
   - zero terminations across all envs for the whole horizon;

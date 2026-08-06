@@ -13,7 +13,7 @@ episodes (reset map live, as in training), and classifies each episode:
 Usage (from the IsaacLab root):
 
     PYTHONPATH=/home/mdigiorgio/Documents/code/newton-adaptive ./isaaclab.sh -p \
-        /home/mdigiorgio/Documents/code/isaac-rubato/experiments/g1_dish_rack/eval_lift.py \
+        /home/mdigiorgio/Documents/code/IsaacLabRubato/experiments/g1_dish_rack/eval_lift.py \
         <checkpoint.pt> [num_episodes]
 """
 
