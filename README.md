@@ -1,6 +1,6 @@
 # IsaacLabRubato
 
-IsaacLabRubato (formerly `isaac-rubato`) is a modified [Isaac Sim](https://developer.nvidia.com/isaac/sim) /
+IsaacLabRubato is a modified [Isaac Sim](https://developer.nvidia.com/isaac/sim) /
 [Isaac Lab](https://github.com/isaac-sim/IsaacLab) / [Newton](https://github.com/newton-physics/newton)
 stack: the standard Isaac toolchain with an adaptive-timestepping solver wired into Isaac Lab's Newton
 backend as a selectable option, so reinforcement-learning policies can be trained on adaptive-step
