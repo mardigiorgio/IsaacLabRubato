@@ -105,3 +105,9 @@ explicit = true
 name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
 explicit = true
+
+[dependency-groups]
+# Dev tools the fork's test/commit workflow needs in THIS venv (pytest for
+# isaaclab.sh -p -m pytest, pre-commit for the hook gate). Installed by default
+# by uv sync.
+dev = ["pytest>=8", "pytest-timeout", "pre-commit>=4"]
