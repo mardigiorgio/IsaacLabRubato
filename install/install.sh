@@ -48,6 +48,20 @@ if [ -d .venv ] && ! grep -q "VIRTUAL_ENV='$ROOT/.venv'" .venv/bin/activate 2>/d
     rm -rf .venv
 fi
 [ -d .venv ] || uv venv --python 3.12 .venv
+# Default the Isaac Sim EULA acceptance for every interpreter start in this
+# venv: the interactive prompt crashes captured-stdin contexts (pytest) and
+# stalls detached (nohup) runs on a fresh install.
+cat > .venv/lib/python3.12/site-packages/sitecustomize.py <<'PYEOF'
+"""IsaacLabRubato venv bootstrap (written by install/install.sh).
+
+Isaac Sim's one-time EULA check reads stdin when unset, which crashes
+captured-stdin contexts (pytest) and stalls detached runs; default the
+acceptance for every interpreter start in this venv.
+"""
+import os
+
+os.environ.setdefault("OMNI_KIT_ACCEPT_EULA", "YES")
+PYEOF
 uv sync --locked
 
 # --- Isaac Lab editable extensions into the same venv -----------------------
