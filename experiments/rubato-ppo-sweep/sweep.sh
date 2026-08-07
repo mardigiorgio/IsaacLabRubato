@@ -88,6 +88,13 @@ die() { echo "[FATAL] $*" >&2; exit 1; }
 [[ -f "$RUBATO_DIR/.venv/bin/activate" ]] || die "rubato venv not found at $RUBATO_DIR/.venv"
 command -v nvidia-smi >/dev/null && nvidia-smi -L || echo "[WARN] nvidia-smi not found"
 
+# This is the FULL-SCALE sweep (stock env counts; the dexterous tasks are ~20 h/run on
+# a 16 GB card). On the 4070 workstation use experiments/sweep-4070 instead; both
+# wrong-directory launches so far happened there. Override with ALLOW_SMALL_GPU=1.
+if [[ "${ALLOW_SMALL_GPU:-0}" != 1 ]] && nvidia-smi -L 2>/dev/null | grep -q "4070"; then
+  die "refusing to run the full-scale sweep on a 4070 -- use experiments/sweep-4070 (or ALLOW_SMALL_GPU=1)"
+fi
+
 if [[ "$SKIP_UPDATE" != 1 ]]; then
   echo "[INFO] updating repos to latest origin"
   git -C "$ISAACLAB_DIR" fetch origin || die "fetch IsaacLab failed"
