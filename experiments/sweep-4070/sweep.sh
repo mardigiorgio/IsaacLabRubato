@@ -132,18 +132,25 @@ run_one() {
     n_skip=$((n_skip+1)); return 0
   fi
 
-  # Skip tier 1: local cache (same box, no network round-trip).
-  if [[ -f "$status_f" && "$(cat "$status_f")" == 0 ]]; then
-    echo "[SKIP] $run_name (done: local cache)"; n_skip=$((n_skip+1)); return 0
-  fi
-  # Skip tier 2: the W&B ledger -- authoritative across machines.
+  # The cloud ledger is authoritative when reachable: a run DELETED from W&B must
+  # re-run even if a local status file says done -- the cache must never outlive the
+  # ledger. Local status is consulted only when the ledger is offline/unreachable.
   if [[ "$WANDB_LEDGER" == 1 ]]; then
     "$RUBATO_DIR/.venv/bin/python" "$RUBATO_DIR/tools/wandb_done.py" "$PROJECT" "$run_name" >/dev/null 2>&1
     case $? in
       0) echo "[SKIP] $run_name (done: W&B ledger)"; echo 0 > "$status_f"
          n_skip=$((n_skip+1)); return 0 ;;
-      2) echo "[WARN] $run_name: W&B ledger query failed; trusting local state only" ;;
+      1) if [[ -f "$status_f" && "$(cat "$status_f")" == 0 ]]; then
+           echo "[STALE] $run_name: local marker says done but no finished run in W&B (deleted?) -- re-running"
+           rm -f "$status_f"
+         fi ;;
+      2) echo "[WARN] $run_name: W&B ledger query failed; trusting local status"
+         if [[ -f "$status_f" && "$(cat "$status_f")" == 0 ]]; then
+           echo "[SKIP] $run_name (done: local cache)"; n_skip=$((n_skip+1)); return 0
+         fi ;;
     esac
+  elif [[ -f "$status_f" && "$(cat "$status_f")" == 0 ]]; then
+    echo "[SKIP] $run_name (done: local cache, offline mode)"; n_skip=$((n_skip+1)); return 0
   fi
 
   if [[ "$solver" == *adaptive* ]]; then
