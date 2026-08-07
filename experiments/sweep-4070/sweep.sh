@@ -117,7 +117,7 @@ run_one() {
   fi
   # Skip tier 2: the W&B ledger -- authoritative across machines.
   if [[ "$WANDB_LEDGER" == 1 ]]; then
-    "$RUBATO_DIR/.venv/bin/python" "$SWEEP_DIR/wandb_done.py" "$PROJECT" "$run_name" >/dev/null 2>&1
+    "$RUBATO_DIR/.venv/bin/python" "$RUBATO_DIR/tools/wandb_done.py" "$PROJECT" "$run_name" >/dev/null 2>&1
     case $? in
       0) echo "[SKIP] $run_name (done: W&B ledger)"; echo 0 > "$status_f"
          n_skip=$((n_skip+1)); return 0 ;;

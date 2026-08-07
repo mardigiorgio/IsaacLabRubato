@@ -109,6 +109,12 @@ if [[ "${WANDB_MODE:-online}" == "online" && -z "${WANDB_API_KEY:-}" ]] \
   echo "[WARN] either 'wandb login' first or rerun with WANDB_MODE=offline."
 fi
 
+# Cross-machine skip ledger: a run is done when a FINISHED W&B run by its name exists in
+# $PROJECT (tools/wandb_done.py) -- so a sweep continued on another machine skips work
+# this one already finished, with no status/ syncing. Offline mode: status/ alone.
+WANDB_LEDGER=0
+[[ "${WANDB_MODE:-online}" == "online" ]] && WANDB_LEDGER=1
+
 mkdir -p "$SWEEP_DIR"/{status,joblogs}
 cd "$SWEEP_DIR" || die "cannot cd to $SWEEP_DIR"
 summary="$SWEEP_DIR/summary.tsv"
@@ -126,6 +132,16 @@ run_one() {
 
   if [[ -f "$status_f" && "$(cat "$status_f")" == 0 ]]; then
     echo "[SKIP] $run_name (already done)"; n_skip=$((n_skip+1)); return 0
+  fi
+
+  # Cross-machine ledger (authoritative): finished anywhere -> skip here.
+  if [[ "$WANDB_LEDGER" == 1 ]]; then
+    "$RUBATO_DIR/.venv/bin/python" "$RUBATO_DIR/tools/wandb_done.py" "$PROJECT" "$run_name" >/dev/null 2>&1
+    case $? in
+      0) echo "[SKIP] $run_name (done: W&B ledger)"; echo 0 > "$status_f"
+         n_skip=$((n_skip+1)); return 0 ;;
+      2) echo "[WARN] $run_name: W&B ledger query failed; trusting local state only" ;;
+    esac
   fi
 
   # Default: never resume -- an incomplete run retrains from iteration 0. Opt into
