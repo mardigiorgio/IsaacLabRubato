@@ -39,7 +39,7 @@ NEWTON_DIR=${NEWTON_DIR:-$CODE_DIR/newton-adaptive}
 export OMNI_KIT_ACCEPT_EULA=${OMNI_KIT_ACCEPT_EULA:-YES}
 
 PROJECT=${PROJECT:-rubato-ppo-quantile}
-RUN_TAG=${RUN_TAG:-r1}
+RUN_TAG=${RUN_TAG:-r2}
 SEEDS=${SEEDS:-"42 43 44 45 46"}
 SOLVERS=${SOLVERS:-"mujoco mujoco-adaptive"}
 SKIP_UPDATE=${SKIP_UPDATE:-0}
