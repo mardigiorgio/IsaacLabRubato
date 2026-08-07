@@ -27,6 +27,8 @@
 #   * Per-run timeout (RUN_TIMEOUT, default 3600 s): a hung run fails loudly with
 #     rc=124 instead of silently blocking every run behind it.
 #   * No repo auto-update: this box runs the local checkouts as-is.
+#   * VRAM auto-skip: envs run at STOCK configs; a task+solver that OOMs is marked
+#     unsupported in status/ (per-machine) and skipped for all remaining seeds.
 #
 # Launch detached so an SSH/terminal drop cannot kill it:
 #   cd experiments/sweep-4070 && nohup bash sweep.sh >> sweep.out 2>&1 &
@@ -118,9 +120,17 @@ run_one() {
   local slug=${task#IsaacContrib-}; slug=${slug#Isaac-}; slug=${slug,,}
   local run_name="${slug}-${solver}-s${seed}-${RUN_TAG}"
   local status_f="status/${run_name}.exit"
+  local unsupported_f="status/UNSUPPORTED.${slug}-${solver}"
   local t0 rc mins adaptive_env=() scale_args=()
   [[ -n "$NUM_ENVS" ]] && scale_args+=( --num_envs "$NUM_ENVS" )
   [[ -n "$MAX_ITERATIONS" ]] && scale_args+=( --max_iterations "$MAX_ITERATIONS" )
+
+  # Skip tier 0: this task+solver already OOM'd at stock config on THIS GPU. The marker
+  # is per-machine (status/ is gitignored) because VRAM capability is per-machine.
+  if [[ -f "$unsupported_f" ]]; then
+    echo "[SKIP] $run_name (unsupported on this GPU: $(cat "$unsupported_f"))"
+    n_skip=$((n_skip+1)); return 0
+  fi
 
   # Skip tier 1: local cache (same box, no network round-trip).
   if [[ -f "$status_f" && "$(cat "$status_f")" == 0 ]]; then
@@ -159,6 +169,11 @@ run_one() {
     echo "[PASS] $run_name (${mins}m)"; n_pass=$((n_pass+1))
   else
     [[ $rc == 124 ]] && echo "[HUNG] $run_name exceeded RUN_TIMEOUT=${RUN_TIMEOUT}s"
+    if tail -n 200 "joblogs/${run_name}.log" \
+       | grep -qiE "out of memory|cudaErrorMemoryAllocation|CUDA error 2|Failed to allocate [0-9]+ bytes"; then
+      echo "GPU OOM at stock config, $(date +%F_%T)" > "$unsupported_f"
+      echo "[VRAM] $run_name: stock config exceeds this GPU -- skipping ${slug}-${solver} for remaining seeds"
+    fi
     echo "[FAIL] $run_name rc=$rc (${mins}m) -- tail of joblogs/${run_name}.log:"
     tail -n 12 "joblogs/${run_name}.log" | sed 's/^/    /'
     n_fail=$((n_fail+1))
