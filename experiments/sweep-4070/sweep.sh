@@ -29,7 +29,7 @@
 #   * No repo auto-update: this box runs the local checkouts as-is.
 #
 # Launch detached so an SSH/terminal drop cannot kill it:
-#   cd experiments/sweep-4070 && nohup bash sweep.sh > sweep.out 2>&1 &
+#   cd experiments/sweep-4070 && nohup bash sweep.sh >> sweep.out 2>&1 &
 # Watch:   tail -f sweep.out          Kill:   pkill -TERM -f sweep-4070/sweep.sh
 #
 # Knobs (env vars): PROJECT, RUN_TAG, SEEDS, TASKS, SOLVERS, NUM_ENVS, MAX_ITERATIONS,
@@ -96,6 +96,11 @@ fi
 # The cross-machine ledger needs the API; offline mode falls back to the local cache.
 WANDB_LEDGER=0
 [[ "${WANDB_MODE:-online}" == "online" ]] && WANDB_LEDGER=1
+
+# Single-instance guard: a second launch in the same sweep dir raced the first one's
+# in-flight run (the W&B ledger only knows FINISHED runs), doubling it on one GPU.
+exec 9>"$SWEEP_DIR/.lock"
+flock -n 9 || die "another sweep is already running in $SWEEP_DIR (pkill -TERM -f sweep.sh, or wait)"
 
 mkdir -p "$SWEEP_DIR"/{status,joblogs}
 cd "$SWEEP_DIR" || die "cannot cd to $SWEEP_DIR"

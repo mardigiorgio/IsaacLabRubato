@@ -19,7 +19,7 @@
 # Opt back into auto-resume (newest model_*.pt, budget capped to the stock remainder,
 # continuing the same W&B run) with RESUME=1. ALWAYS launch detached so an SSH drop
 # cannot kill it:
-#   nohup bash sweep.sh > sweep.out 2>&1 &
+#   nohup bash sweep.sh >> sweep.out 2>&1 &
 #
 # Every run uses the task's stock config (num_envs, iterations, PPO params) untouched.
 # Knobs (env vars): SEEDS, TASKS, SOLVERS, DEFER_TASKS, FINISH_NOW_TASKS, RUN_TAG,
@@ -114,6 +114,11 @@ fi
 # this one already finished, with no status/ syncing. Offline mode: status/ alone.
 WANDB_LEDGER=0
 [[ "${WANDB_MODE:-online}" == "online" ]] && WANDB_LEDGER=1
+
+# Single-instance guard: a second launch in the same sweep dir raced the first one's
+# in-flight run (the W&B ledger only knows FINISHED runs), doubling it on one GPU.
+exec 9>"$SWEEP_DIR/.lock"
+flock -n 9 || die "another sweep is already running in $SWEEP_DIR (pkill -TERM -f sweep.sh, or wait)"
 
 mkdir -p "$SWEEP_DIR"/{status,joblogs}
 cd "$SWEEP_DIR" || die "cannot cd to $SWEEP_DIR"
