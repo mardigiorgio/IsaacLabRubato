@@ -24,7 +24,11 @@
 # Every run uses the task's stock config (num_envs, iterations, PPO params) untouched.
 # Knobs (env vars): SEEDS, TASKS, SOLVERS, DEFER_TASKS, FINISH_NOW_TASKS, RUN_TAG,
 # PROJECT, SKIP_UPDATE=1, RESUME=1, WANDB_MODE=offline, VIDEO=1, ADAPTIVE_FLAGS,
-# ADAPTIVE_LOG_EVERY.
+# ADAPTIVE_LOG_EVERY, NUM_ENVS, MAX_ITERATIONS.
+#
+# NUM_ENVS / MAX_ITERATIONS override the stock config for boxes that cannot afford it.
+# A sweep that sets either is NOT comparable to a stock sweep -- keep it in its own
+# PROJECT, and compare fixed vs adaptive only within it.
 set -uo pipefail
 
 # This script lives at <repo>/experiments/rubato-ppo-sweep/, so the repo root is
@@ -47,14 +51,20 @@ SWEEP_DIR=${SWEEP_DIR:-$RUBATO_DIR/experiments/rubato-ppo-sweep}
 VIDEO=${VIDEO:-0}
 ADAPTIVE_FLAGS=${ADAPTIVE_FLAGS:-}
 ADAPTIVE_LOG_EVERY=${ADAPTIVE_LOG_EVERY:-120}
+# Scale-down knobs for boxes that cannot afford the stock configs (the two dexterous
+# tasks alone are ~20 h/run at stock env counts on a 16 GB card). Empty = use the task's
+# stock value, which is the default and what a headline sweep should use.
+NUM_ENVS=${NUM_ENVS:-}
+MAX_ITERATIONS=${MAX_ITERATIONS:-}
 
 # High-iteration scenes: excluded from the seed-major main passes and run in a final end
 # pass (all seeds x both solvers) only after every seed of the other tasks has finished.
 # Exception ("finish what's started"): a deferred task listed in FINISH_NOW_TASKS that
 # already has a checkpoint resumes in the main pass instead of waiting -- currently just
-# repose, so the half-done s42 run completes first. DEFER_TASKS="" disables deferral.
-DEFER_TASKS=${DEFER_TASKS:-"Isaac-Reorient-Cube-Allegro-Direct Isaac-Lift-KukaAllegro"}
-FINISH_NOW_TASKS=${FINISH_NOW_TASKS:-"Isaac-Reorient-Cube-Allegro-Direct"}
+# repose, so the half-done s42 run completes first. DEFER_TASKS="" disables deferral
+# (note the ${VAR-default} form: with :- an empty value would restore the default).
+DEFER_TASKS=${DEFER_TASKS-"Isaac-Reorient-Cube-Allegro-Direct Isaac-Lift-KukaAllegro"}
+FINISH_NOW_TASKS=${FINISH_NOW_TASKS-"Isaac-Reorient-Cube-Allegro-Direct"}
 
 # Newton-supported task list, current origin/develop ids (old-doc names in comments).
 # Ordered cheap -> expensive so early data lands fast; the two dexterous tasks dominate
@@ -122,7 +132,7 @@ run_one() {
   local run_name="${slug}-${solver}-s${seed}-${RUN_TAG}"
   local status_f="status/${run_name}.exit"
   local prev_dir last_ckpt ckpt_it total_it wdir t0 rc mins
-  local resume_args=() wandb_env=() cmd=() video_args=() adaptive_env=()
+  local resume_args=() wandb_env=() cmd=() video_args=() adaptive_env=() scale_args=()
 
   if [[ -f "$status_f" && "$(cat "$status_f")" == 0 ]]; then
     echo "[SKIP] $run_name (already done)"; n_skip=$((n_skip+1)); return 0
@@ -161,6 +171,9 @@ run_one() {
   fi
 
   [[ "$VIDEO" == 1 ]] && video_args=( --video )
+  [[ -n "$NUM_ENVS" ]] && scale_args+=( --num_envs "$NUM_ENVS" )
+  # RESUME caps max_iterations to the crashed run's remainder; an explicit budget wins.
+  [[ -n "$MAX_ITERATIONS" && ${#resume_args[@]} -eq 0 ]] && scale_args+=( --max_iterations "$MAX_ITERATIONS" )
   if [[ "$solver" == *adaptive* ]]; then
     adaptive_env=( "NEWTON_ADAPTIVE_LOG=$SWEEP_DIR/joblogs/${run_name}.dt.log"
                    "NEWTON_ADAPTIVE_LOG_EVERY=$ADAPTIVE_LOG_EVERY" )
@@ -172,7 +185,7 @@ run_one() {
         --task "$task" --solver "$solver" --seed "$seed" "${video_args[@]}"
         --logger wandb --log_project_name "$PROJECT"
         --run_name "$run_name" --run_group "${slug}-${solver}"
-        "${resume_args[@]}"
+        "${scale_args[@]}" "${resume_args[@]}"
         physics=newton_mjwarp )
 
   echo "[RUN ] $(date +%F_%T) $run_name"
