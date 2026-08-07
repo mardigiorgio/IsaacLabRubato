@@ -44,16 +44,20 @@ SWEEP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export OMNI_KIT_ACCEPT_EULA=${OMNI_KIT_ACCEPT_EULA:-YES}
 
 PROJECT=${PROJECT:-rubato-4070}
-RUN_TAG=${RUN_TAG:-s1}
+RUN_TAG=${RUN_TAG:-s2}
 SEEDS=${SEEDS:-"42 43 44"}
 SOLVERS=${SOLVERS:-"mujoco mujoco-adaptive"}
-NUM_ENVS=${NUM_ENVS:-1024}
+# Stock env counts, truncated iterations: batch size and per-task hyperparameters stay
+# faithful (rsl_rl is tuned for stock num_envs), so early curves are trustworthy and the
+# fixed-vs-adaptive pairing is meaningful; the s1 attempt at NUM_ENVS=1024 starved the
+# harder tasks of 4-8x their tuned batch and produced garbage curves. Empty = stock.
+NUM_ENVS=${NUM_ENVS:-}
 MAX_ITERATIONS=${MAX_ITERATIONS:-300}
 RUN_TIMEOUT=${RUN_TIMEOUT:-3600}
 ADAPTIVE_LOG_EVERY=${ADAPTIVE_LOG_EVERY:-120}
 
-# Cheap -> expensive so early data lands fast; the dexterous pair last. At
-# NUM_ENVS=1024 x MAX_ITERATIONS=300 every task is minutes, not hours.
+# Cheap -> expensive so early data lands fast; the dexterous pair last (reorient@8192
+# adaptive is the dominant cost, ~75 min/run at 300 iters).
 TASKS=${TASKS:-"
 Isaac-Cartpole-Direct
 Isaac-Cartpole
@@ -114,7 +118,9 @@ run_one() {
   local slug=${task#IsaacContrib-}; slug=${slug#Isaac-}; slug=${slug,,}
   local run_name="${slug}-${solver}-s${seed}-${RUN_TAG}"
   local status_f="status/${run_name}.exit"
-  local t0 rc mins adaptive_env=()
+  local t0 rc mins adaptive_env=() scale_args=()
+  [[ -n "$NUM_ENVS" ]] && scale_args+=( --num_envs "$NUM_ENVS" )
+  [[ -n "$MAX_ITERATIONS" ]] && scale_args+=( --max_iterations "$MAX_ITERATIONS" )
 
   # Skip tier 1: local cache (same box, no network round-trip).
   if [[ -f "$status_f" && "$(cat "$status_f")" == 0 ]]; then
@@ -137,12 +143,11 @@ run_one() {
 
   echo "[RUN ] $(date +%F_%T) $run_name"
   t0=$(date +%s)
-  echo "==== $(date +%F_%T) launch $run_name [envs=$NUM_ENVS iters=$MAX_ITERATIONS wandb=${WANDB_MODE:-online}] ====" \
+  echo "==== $(date +%F_%T) launch $run_name [envs=${NUM_ENVS:-stock} iters=${MAX_ITERATIONS:-stock} wandb=${WANDB_MODE:-online}] ====" \
     >> "joblogs/${run_name}.log"
   env "${adaptive_env[@]}" timeout --signal=TERM --kill-after=60 "$RUN_TIMEOUT" \
       "$ISAACLAB_DIR/isaaclab.sh" train --rl_library rsl_rl \
-      --task "$task" --solver "$solver" --seed "$seed" \
-      --num_envs "$NUM_ENVS" --max_iterations "$MAX_ITERATIONS" \
+      --task "$task" --solver "$solver" --seed "$seed" "${scale_args[@]}" \
       --logger wandb --log_project_name "$PROJECT" \
       --run_name "$run_name" --run_group "${slug}-${solver}" \
       physics=newton_mjwarp >> "joblogs/${run_name}.log" 2>&1
