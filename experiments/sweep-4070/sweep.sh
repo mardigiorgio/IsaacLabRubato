@@ -9,8 +9,17 @@
 # and only fixed-vs-adaptive WITHIN this project is a fair comparison.
 #
 # Per task x seed it trains BOTH solvers back-to-back, so partial sweeps still yield
-# paired comparisons. Robustness lessons baked in from the stock sweep's first run on
-# this box:
+# paired comparisons.
+#
+# CROSS-MACHINE RESUME: W&B is the completion ledger. A run is "done" when a FINISHED
+# W&B run by its name exists in $PROJECT (wandb_done.py), so any machine that pulls
+# this repo and launches will skip work any other machine already finished -- there is
+# no state directory to sync. The local status/ dir is only a cache so re-runs on the
+# same box skip without a network round-trip. Checkpoint resuming is deliberately not
+# supported at this scale: runs are minutes, an interrupted run just retrains.
+# (Offline mode falls back to the local cache alone.)
+#
+# Robustness, learned from the stock sweep's first run on this box:
 #   * W&B preflight: if api.wandb.ai is unreachable from THIS process (e.g. launched
 #     from a network-sandboxed shell), fall back to WANDB_MODE=offline instead of the
 #     uploader retrying forever with training already finished. Sync later with:
@@ -23,9 +32,8 @@
 #   cd experiments/sweep-4070 && nohup bash sweep.sh > sweep.out 2>&1 &
 # Watch:   tail -f sweep.out          Kill:   pkill -TERM -f sweep-4070/sweep.sh
 #
-# Re-running skips runs already finished with exit 0 (status/ dir). Knobs (env vars):
-# PROJECT, RUN_TAG, SEEDS, TASKS, SOLVERS, NUM_ENVS, MAX_ITERATIONS, RUN_TIMEOUT,
-# WANDB_MODE, ADAPTIVE_LOG_EVERY.
+# Knobs (env vars): PROJECT, RUN_TAG, SEEDS, TASKS, SOLVERS, NUM_ENVS, MAX_ITERATIONS,
+# RUN_TIMEOUT, WANDB_MODE, ADAPTIVE_LOG_EVERY.
 set -uo pipefail
 
 _ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -85,6 +93,9 @@ if [[ "${WANDB_MODE:-online}" == "online" ]]; then
     export WANDB_MODE=offline
   fi
 fi
+# The cross-machine ledger needs the API; offline mode falls back to the local cache.
+WANDB_LEDGER=0
+[[ "${WANDB_MODE:-online}" == "online" ]] && WANDB_LEDGER=1
 
 mkdir -p "$SWEEP_DIR"/{status,joblogs}
 cd "$SWEEP_DIR" || die "cannot cd to $SWEEP_DIR"
@@ -100,9 +111,20 @@ run_one() {
   local status_f="status/${run_name}.exit"
   local t0 rc mins adaptive_env=()
 
+  # Skip tier 1: local cache (same box, no network round-trip).
   if [[ -f "$status_f" && "$(cat "$status_f")" == 0 ]]; then
-    echo "[SKIP] $run_name (already done)"; n_skip=$((n_skip+1)); return 0
+    echo "[SKIP] $run_name (done: local cache)"; n_skip=$((n_skip+1)); return 0
   fi
+  # Skip tier 2: the W&B ledger -- authoritative across machines.
+  if [[ "$WANDB_LEDGER" == 1 ]]; then
+    "$RUBATO_DIR/.venv/bin/python" "$SWEEP_DIR/wandb_done.py" "$PROJECT" "$run_name" >/dev/null 2>&1
+    case $? in
+      0) echo "[SKIP] $run_name (done: W&B ledger)"; echo 0 > "$status_f"
+         n_skip=$((n_skip+1)); return 0 ;;
+      2) echo "[WARN] $run_name: W&B ledger query failed; trusting local state only" ;;
+    esac
+  fi
+
   if [[ "$solver" == *adaptive* ]]; then
     adaptive_env=( "NEWTON_ADAPTIVE_LOG=$SWEEP_DIR/joblogs/${run_name}.dt.log"
                    "NEWTON_ADAPTIVE_LOG_EVERY=$ADAPTIVE_LOG_EVERY" )
