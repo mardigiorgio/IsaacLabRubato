@@ -38,7 +38,7 @@ NEWTON_DIR=${NEWTON_DIR:-$CODE_DIR/newton-adaptive}
 # Isaac Sim's one-time EULA prompt would stall a detached (nohup) sweep.
 export OMNI_KIT_ACCEPT_EULA=${OMNI_KIT_ACCEPT_EULA:-YES}
 
-PROJECT=${PROJECT:-rubato-ppo}
+PROJECT=${PROJECT:-rubato-ppo-quantile}
 RUN_TAG=${RUN_TAG:-r1}
 SEEDS=${SEEDS:-"42 43 44 45 46"}
 SOLVERS=${SOLVERS:-"mujoco mujoco-adaptive"}
