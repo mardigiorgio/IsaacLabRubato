@@ -125,7 +125,7 @@ WANDB_LEDGER=0
 # Single-instance guard: a second launch in the same sweep dir raced the first one's
 # in-flight run (the W&B ledger only knows FINISHED runs), doubling it on one GPU.
 exec 9>"$SWEEP_DIR/.lock"
-flock -n 9 || die "another sweep is already running in $SWEEP_DIR (pkill -TERM -f sweep.sh, or wait)"
+flock -n 9 || die "another sweep instance holds $SWEEP_DIR/.lock -- watch: tail -f $SWEEP_DIR/sweep.out ; stop it AND its children: fuser -k -TERM $SWEEP_DIR/.lock"
 
 mkdir -p "$SWEEP_DIR"/{status,joblogs}
 cd "$SWEEP_DIR" || die "cannot cd to $SWEEP_DIR"
@@ -213,7 +213,7 @@ run_one() {
   echo "[RUN ] $(date +%F_%T) $run_name"
   t0=$(date +%s)
   echo "==== $(date +%F_%T) launch $run_name [video=$VIDEO adaptive_env: ${adaptive_env[*]:-none}] ====" >> "joblogs/${run_name}.log"
-  env "${wandb_env[@]}" "${adaptive_env[@]}" "${cmd[@]}" >> "joblogs/${run_name}.log" 2>&1
+  env "${wandb_env[@]}" "${adaptive_env[@]}" "${cmd[@]}" >> "joblogs/${run_name}.log" 2>&1 9>&-
   rc=$?
   mins=$(( ($(date +%s) - t0) / 60 ))
   echo "$rc" > "$status_f"
