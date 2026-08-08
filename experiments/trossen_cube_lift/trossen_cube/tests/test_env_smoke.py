@@ -24,7 +24,7 @@ import trossen_cube  # noqa: F401,E402  (registers gym ids)
 from trossen_cube.paths import ARTIFACT_ROOT  # noqa: E402
 
 OUT = os.environ.get("ENV_SMOKE_OUT") or os.path.join(ARTIFACT_ROOT, "env_smoke.json")
-TASK = "Isaac-Lift-Cube-StationaryAI-Teacher-v0"
+TASK = os.environ.get("SMOKE_TASK", "Isaac-Lift-Cube-StationaryAI-Teacher-v0")
 
 res: dict = {}
 try:

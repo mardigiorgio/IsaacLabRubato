@@ -10,7 +10,7 @@ convention (NOT ``"policy"``; that's an env obs-group name). Hyperparameters mir
 Franka/WXAI lift PPO cfg. See IMPL_GROUND_TRUTH.md.
 """
 
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 from isaaclab_rl.rsl_rl import RslRlMLPModelCfg, RslRlOnPolicyRunnerCfg, RslRlPpoAlgorithmCfg
 
 

@@ -23,7 +23,7 @@ from isaaclab.sensors import FrameTransformerCfg
 from isaaclab.sensors.frame_transformer import OffsetCfg
 from isaaclab.sim.schemas import RigidBodyPropertiesCfg
 from isaaclab.sim.spawners import UsdFileCfg
-from isaaclab.utils import configclass
+from isaaclab.utils.configclass import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
 # Physics backends. PhysX stays the default; Newton (MJWarp / adaptive) is selectable.
@@ -31,11 +31,10 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 from isaaclab_newton.physics import MJWarpSolverCfg, NewtonCfg
 from isaaclab_physx.physics import PhysxCfg
 
-# core.lift is the home of LiftEnvCfg + lift mdp in isaaclab_tasks 8.x. The legacy
-# isaaclab_tasks.manager_based.manipulation.lift path was removed and would ImportError
-# at module load on this checkout (before any backend choice is even reached).
-from isaaclab_tasks.core.lift import mdp
-from isaaclab_tasks.core.lift.lift_env_cfg import LiftEnvCfg
+# Vendored lift base + mdp (see lift_base.py): the in-tree core.lift task was rewritten
+# after this experiment and no longer exposes the June API surface this config uses.
+from ..lift_base import TrossenLiftEnvCfg as LiftEnvCfg
+from .. import mdp_local as mdp
 from isaaclab_tasks.utils import PresetCfg
 
 from trossen_cube.assets import STATIONARY_AI_CFG
