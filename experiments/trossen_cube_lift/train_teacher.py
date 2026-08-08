@@ -24,6 +24,7 @@ parser.add_argument(
     "UNVERIFIED -- contact-drop there is silent (shows as object_dropping, not an "
     "error); boot-smoke and watch object_dropping before trusting it.",
 )
+parser.add_argument("--task", default="Isaac-Lift-Cube-StationaryAI-Teacher-v0")
 parser.add_argument("--max_iterations", type=int, default=1500)
 parser.add_argument("--seed", type=int, default=1)
 parser.add_argument("--video", action="store_true")
@@ -71,7 +72,7 @@ from isaaclab_tasks.utils import load_cfg_from_registry, parse_env_cfg  # noqa: 
 from rsl_rl.runners import OnPolicyRunner  # noqa: E402
 from trossen_cube.paths import LOG_ROOT  # noqa: E402  (post-launch; default ~/Documents/code/isaac-data/logs/trossen)
 
-TASK = "Isaac-Lift-Cube-StationaryAI-Teacher-v0"
+TASK = args.task
 
 
 def main():
